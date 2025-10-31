@@ -1,4 +1,3 @@
-
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -13,109 +12,108 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 #define DRIVER_NAME "devone"
 
-static int devone_devs = 1;
+static int devone_devs = 2;
 static unsigned int devone_major = 0;
 module_param(devone_major, uint, 0);
 static struct cdev devone_cdev;
 
-struct devone_data {
-        unsigned char val;
-        rwlock_t lock;
+static ssize_t one_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+{
+        printk("%s called\n", __func__);
+
+        return 0;
+}
+
+static ssize_t one_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
+{
+        printk("%s called\n", __func__);
+        
+        return 0;
+}
+
+static int one_close(struct inode *inode, struct file *file)
+{
+        printk("%s: major %d minor %d (pid %d)\n", __func__, imajor(inode), iminor(inode), current->pid);
+      
+        return 0;
+}
+
+static int one_open(struct inode *inode, struct file *file)
+{
+        printk("%s: major %d minor %d (pid %d)\n", __func__, imajor(inode), iminor(inode), current->pid);
+      
+        return 0;
+}
+
+struct file_operations one_fops = {
+        .open = one_open,
+        .release = one_close,
+        .read = one_read,
+        .write = one_write,
 };
 
-static ssize_t devone_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+static ssize_t zero_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
 {
-        struct devone_data *p = filp->private_data;
-        unsigned char val;
-        int retval;
-        
-        printk("%s: count %ld pos %lld\n", __func__, count, *f_pos);
-        
-        if (count >= 1) {
-            if (copy_from_user(&val, &buf[0], 1)) {
-                retval = -EFAULT;
-                goto out;
-            }
-            write_lock(&p->lock);
-            p->val = val;
-            write_unlock(&p->lock);
-            retval = count;
-    }
-out:
-        return (retval);
+        printk("%s called\n", __func__);
+
+        return 0;
 }
 
-static ssize_t devone_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
-{
-        struct devone_data *p = filp->private_data;
-        int i;
-        unsigned char val;
-        int retval;
+static ssize_t zero_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
+{ 
+        printk("%s called\n", __func__);
 
-        read_lock(&p->lock);
-        val = p->val;
-        read_unlock(&p->lock);
-        
-        printk("%s: count %ld pos %lld\n", __func__, count, *f_pos);
-        
-        for (i = 0; i < count ; i++) {
-            if (copy_to_user(&buf[i], &val, 1)) {
-                retval = -EFAULT;
-                goto out;
-            }
-        }
-        retval = count;
-out:
-        return (retval);
+        return 0; 
 }
+
+
+static int zero_close(struct inode *inode, struct file *file)
+{
+        printk("%s: major %d minor %d (pid %d)\n", __func__, imajor(inode), iminor(inode), current->pid);
+      
+        return 0;
+}
+
+static int zero_open(struct inode *inode, struct file *file)
+{
+        printk("%s: major %d minor %d (pid %d)\n", __func__, imajor(inode), iminor(inode), current->pid);
+      
+        return 0;
+}
+
+struct file_operations zero_fops = {
+        .open = zero_open,
+        .release = zero_close,
+        .read = zero_read,
+        .write = zero_write,
+};
+
 
 static int devone_open(struct inode *inode, struct file *file)
 {
-        struct devone_data *p;
-
-        printk("%s: major %d minor %d (pid %d)\n", __func__,
-               imajor(inode),
-               iminor(inode),
-               current->pid
-               );
-        p = kmalloc(sizeof(struct devone_data), GFP_KERNEL);
-        if (p == NULL) {
-            printk("%s: Not memory\n", __func__);
-            return -ENOMEM;
-        }
-
-        p->val = 0xff;
-        rwlock_init(&p->lock);
-        
-        file->private_data = p;
-        
-        return 0;
-        
-}
-
-static int devone_close(struct inode *inode, struct file *file)
-{
-        
-        
-        printk("%s: major %d minor %d (pid %d)\n", __func__,
-               imajor(inode),
-               iminor(inode),
-               current->pid
-               );
-        
-        if (file->private_data) {
-            kfree(file->private_data);
-            file->private_data = NULL;
-        }
+       printk("%s: major %d minor %d (pid %d)\n", __func__, imajor(inode), iminor(inode), current->pid);
       
+        switch (iminor(inode)) {
+                case 0:
+                        file->f_op = &zero_fops;
+                        break;
+                
+                case 1:
+                        file->f_op = &one_fops;
+                        break;
+              
+                default:
+                        return -ENXIO;
+        }
+        
+        if (file->f_op && file->f_op->open)
+                return file->f_op->open(inode, file);
+
         return 0;
 }
 
 struct file_operations devone_fops = {
         .open = devone_open,
-        .release = devone_close,
-        .read = devone_read,
-        .write = devone_write,
 };
 
 static int devone_init(void)
