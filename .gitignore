@@ -1,7 +1,7 @@
 *.ko
 *.cmd
 Module.symvers
-*.o
+*.o*
 *.mod*
 a.out
 modules.order

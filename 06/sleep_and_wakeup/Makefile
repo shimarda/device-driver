@@ -1,10 +1,8 @@
-CFLAGS += -Wall
-obj-m := main2.o
+obj-m += devone.o
+obj-m += wakeup.o
 
 all:
 				make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
 clean:
 				make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
-
-
