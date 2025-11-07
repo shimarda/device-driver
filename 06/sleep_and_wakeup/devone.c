@@ -54,7 +54,7 @@ static int devone_init(void)
         if (ret < 0) 
                 return ret;
     
-        devone_major = major = MKDEC(dev);
+        devone_major = major = MAJOR(dev);
 
         cdev_init(&devone_cdev, &devone_fops);
         devone_cdev.owner = THIS_MODULE;
